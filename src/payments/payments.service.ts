@@ -1,4 +1,4 @@
-import { Injectable, RawBody } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import Stripe from 'stripe';
 import { envs } from '../config/envs';
 import { PaymentSessionDto } from './dto/payment-session.dto';
@@ -8,9 +8,11 @@ import { Request, Response } from 'express';
 export class PaymentsService {
   private readonly stripe = new Stripe(envs.stripeSecret);
 
+  private readonly logger = new Logger('PAYMENTS-SERVICE');
+
   async createPaymentSession(paymentSessionDto: PaymentSessionDto) {
     const { metadata, line_items } = paymentSessionDto;
-    console.log({ metadataOrder: metadata.order });
+
     const session = await this.stripe.checkout.sessions.create({
       // colocar aqui el ID de mi orden
       payment_intent_data: {
@@ -41,19 +43,18 @@ export class PaymentsService {
         endpointSecret,
       );
     } catch (e) {
-      console.log('Error: ', (e as Error).message);
+      this.logger.error('Error: ', (e as Error).message);
       res.status(400).send(`Webhook Error: ${(e as Error).message}`);
       return;
     }
     switch (event.type) {
       case 'charge.succeeded':
         const charge = event.data.object;
-        console.log({ metadata: charge.metadata });
+        this.logger.debug({ metadata: charge.metadata });
         // llamar al microservicio de ordenes
-        // console.log(event);
         break;
       default:
-        console.log(`Event not handled: ${event.type}`);
+        this.logger.log(`Event not handled: ${event.type}`);
         break;
     }
     return res.status(200).json({ sig });
