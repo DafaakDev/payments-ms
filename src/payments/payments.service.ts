@@ -10,11 +10,13 @@ export class PaymentsService {
 
   async createPaymentSession(paymentSessionDto: PaymentSessionDto) {
     const { metadata, line_items } = paymentSessionDto;
-
+    console.log({ metadataOrder: metadata.order });
     const session = await this.stripe.checkout.sessions.create({
       // colocar aqui el ID de mi orden
-      metadata: {
-        order: metadata.order,
+      payment_intent_data: {
+        metadata: {
+          order: metadata.order,
+        },
       },
       // colocar items que el usuario esta comprando
       line_items: [...line_items],
@@ -28,10 +30,10 @@ export class PaymentsService {
 
   async stripeWebhook(req: Request, res: Response) {
     const sig = req.headers['stripe-signature'] as string | string[];
-    console.log(sig);
+
     let event: Stripe.Event;
-    const endpointSecret = 'whsec_xKikD0fVAaSSvqc7CQ0qKdIanOJ98xZD';
-    // const endpointSecret =      'whsec_c674bb2e4ad92241b344eedd005d8fb1d9f26a1b0c322639b5319e7f67f2c68c';
+    const endpointSecret = envs.stripeEndPointSecret;
+
     try {
       event = this.stripe.webhooks.constructEvent(
         req['rawBody'],
@@ -45,8 +47,10 @@ export class PaymentsService {
     }
     switch (event.type) {
       case 'charge.succeeded':
+        const charge = event.data.object;
+        console.log({ metadata: charge.metadata });
         // llamar al microservicio de ordenes
-        console.log(event);
+        // console.log(event);
         break;
       default:
         console.log(`Event not handled: ${event.type}`);
